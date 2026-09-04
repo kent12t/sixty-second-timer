@@ -1,0 +1,113 @@
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+:root {
+  font-family: 'VT323', 'Courier New', monospace;
+  color: #172b20;
+  background: #121512;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.timer {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  cursor: pointer;
+  outline: none;
+  background:
+    radial-gradient(circle at 50% 40%, #343a33 0, #1b1f1b 42%, #0c0e0c 100%);
+}
+
+.lcd {
+  position: relative;
+  width: min(82vw, 860px);
+  aspect-ratio: 2.45 / 1;
+  display: grid;
+  place-content: center;
+  padding: 6%;
+  border: clamp(12px, 2.2vw, 25px) solid #242924;
+  border-radius: 5px;
+  color: #14271d;
+  background-color: #9fb78b;
+  background-image:
+    repeating-linear-gradient(0deg, rgb(20 39 29 / 7%) 0 1px, transparent 1px 4px),
+    radial-gradient(ellipse at 48% 42%, #b9ca9f 0, #9eb489 68%, #819570 100%);
+  box-shadow:
+    inset 0 0 28px rgb(24 43 31 / 48%),
+    inset 0 3px 5px rgb(255 255 255 / 42%),
+    0 0 0 4px #090b09,
+    0 25px 55px rgb(0 0 0 / 65%);
+  user-select: none;
+}
+
+.lcd::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.34;
+  background-image: radial-gradient(circle, #263f2d 0 1px, transparent 1.5px);
+  background-size: 4px 4px;
+  mix-blend-mode: multiply;
+}
+
+.digits {
+  position: relative;
+  z-index: 1;
+  font-size: clamp(7rem, 21vw, 15rem);
+  line-height: 0.7;
+  letter-spacing: -0.045em;
+  text-align: center;
+  text-shadow: 2px 3px 0 rgb(34 63 43 / 15%);
+  font-variant-numeric: tabular-nums;
+}
+
+.hundredths {
+  display: inline-block;
+  min-width: 1.15em;
+  font-size: 0.48em;
+  letter-spacing: -0.05em;
+}
+
+.message {
+  position: absolute;
+  z-index: 1;
+  right: 6%;
+  bottom: 8%;
+  left: 6%;
+  min-height: 1em;
+  font-size: clamp(1.15rem, 2.5vw, 2rem);
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  .lcd {
+    width: 92vw;
+    aspect-ratio: 2 / 1;
+  }
+
+  .digits {
+    font-size: 28vw;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+  }
+}
