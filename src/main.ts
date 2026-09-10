@@ -1,16 +1,22 @@
 import './style.css'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <main class="timer" aria-label="Press space to start or stop the timer">
+  <main class="timer">
     <div class="lcd" aria-live="polite">
       <div class="digits" id="digits">0:00<span class="hundredths">.00</span></div>
-      <div class="message" id="message">PRESS SPACE</div>
+      <div class="message" id="message">PRESS THE RED BUTTON</div>
     </div>
+    <button class="red-button" id="red-button" type="button" aria-label="Start timer">
+      <span id="button-label">START</span>
+    </button>
   </main>
 `
 
+const lcd = document.querySelector<HTMLDivElement>('.lcd')!
 const digits = document.querySelector<HTMLDivElement>('#digits')!
 const message = document.querySelector<HTMLDivElement>('#message')!
+const redButton = document.querySelector<HTMLButtonElement>('#red-button')!
+const buttonLabel = document.querySelector<HTMLSpanElement>('#button-label')!
 type State = 'ready' | 'running' | 'stopped'
 
 let state: State = 'ready'
@@ -104,15 +110,21 @@ function reset() {
   window.clearTimeout(distractionId)
   state = 'ready'
   stoppedAt = 0
+  lcd.classList.remove('lcd--fading')
   digits.innerHTML = formatTime(0)
-  message.textContent = 'PRESS SPACE'
+  message.textContent = 'PRESS THE RED BUTTON'
+  buttonLabel.textContent = 'START'
+  redButton.setAttribute('aria-label', 'Start timer')
 }
 
 function input() {
   if (state === 'ready') {
     state = 'running'
     startedAt = performance.now()
+    lcd.classList.add('lcd--fading')
     message.textContent = ''
+    buttonLabel.textContent = 'STOP'
+    redButton.setAttribute('aria-label', 'Stop timer and reveal result')
     audioContext ??= new AudioContext()
     void audioContext.resume()
     render()
@@ -122,16 +134,22 @@ function input() {
     stoppedAt = performance.now() - startedAt
     cancelAnimationFrame(animationId)
     window.clearTimeout(distractionId)
+    lcd.classList.remove('lcd--fading')
     render()
     message.textContent = resultMessage(stoppedAt)
-    resetId = window.setTimeout(reset, 15000)
+    buttonLabel.textContent = 'RESTART'
+    redButton.setAttribute('aria-label', 'Reset timer')
+    resetId = window.setTimeout(reset, 30000)
   } else {
     reset()
   }
 }
 
+redButton.addEventListener('click', input)
+
 window.addEventListener('keydown', (event) => {
   if (event.code !== 'Space' || event.repeat) return
+  if (event.target === redButton) return
   event.preventDefault()
   input()
 })

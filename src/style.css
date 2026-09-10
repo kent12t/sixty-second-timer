@@ -25,8 +25,10 @@ body {
 .timer {
   display: grid;
   min-height: 100vh;
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
   place-items: center;
-  cursor: pointer;
+  gap: clamp(2rem, 5vh, 4rem);
+  padding: clamp(1.5rem, 5vw, 4rem);
   outline: none;
   background:
     radial-gradient(circle at 50% 40%, #343a33 0, #1b1f1b 42%, #0c0e0c 100%);
@@ -34,35 +36,30 @@ body {
 
 .lcd {
   position: relative;
+  grid-row: 1;
+  align-self: end;
   width: min(82vw, 860px);
-  aspect-ratio: 2.45 / 1;
-  display: grid;
-  place-content: center;
-  padding: 6%;
-  border: clamp(12px, 2.2vw, 25px) solid #242924;
-  border-radius: 5px;
-  color: #14271d;
-  background-color: #9fb78b;
-  background-image:
-    repeating-linear-gradient(0deg, rgb(20 39 29 / 7%) 0 1px, transparent 1px 4px),
-    radial-gradient(ellipse at 48% 42%, #b9ca9f 0, #9eb489 68%, #819570 100%);
-  box-shadow:
-    inset 0 0 28px rgb(24 43 31 / 48%),
-    inset 0 3px 5px rgb(255 255 255 / 42%),
-    0 0 0 4px #090b09,
-    0 25px 55px rgb(0 0 0 / 65%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1rem;
+  color: #b9ca9f;
   user-select: none;
 }
 
-.lcd::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.34;
-  background-image: radial-gradient(circle, #263f2d 0 1px, transparent 1.5px);
-  background-size: 4px 4px;
-  mix-blend-mode: multiply;
+.lcd--fading {
+  animation: fade-timer 5s linear forwards;
+}
+
+@keyframes fade-timer {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    visibility: hidden;
+    opacity: 0;
+  }
 }
 
 .digits {
@@ -84,25 +81,66 @@ body {
 }
 
 .message {
-  position: absolute;
-  z-index: 1;
-  right: 6%;
-  bottom: 8%;
-  left: 6%;
   min-height: 1em;
+  margin-top: 1.5rem;
   font-size: clamp(1.15rem, 2.5vw, 2rem);
   letter-spacing: 0.12em;
   text-align: center;
 }
 
+.red-button {
+  grid-row: 2;
+  width: clamp(190px, 28vw, 300px);
+  aspect-ratio: 1;
+  padding: 0;
+  border: clamp(12px, 2vw, 20px) solid #181a18;
+  border-radius: 50%;
+  color: #fff0e9;
+  background:
+    radial-gradient(circle at 38% 30%, #ff6658 0, #d71912 35%, #850600 72%, #4f0300 100%);
+  box-shadow:
+    inset 0 -14px 18px rgb(55 0 0 / 55%),
+    inset 0 9px 12px rgb(255 255 255 / 28%),
+    0 8px 0 #080908,
+    0 16px 28px rgb(0 0 0 / 65%);
+  cursor: pointer;
+  font: inherit;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  letter-spacing: 0.12em;
+  text-indent: 0.12em;
+  text-shadow: 0 2px 3px rgb(70 0 0 / 80%);
+  transition: translate 80ms ease, box-shadow 80ms ease, filter 120ms ease;
+}
+
+.red-button:hover {
+  filter: brightness(1.08);
+}
+
+.red-button:focus-visible {
+  outline: 5px solid #f8df79;
+  outline-offset: 7px;
+}
+
+.red-button:active {
+  translate: 0 7px;
+  box-shadow:
+    inset 0 -8px 14px rgb(55 0 0 / 55%),
+    inset 0 7px 10px rgb(255 255 255 / 24%),
+    0 2px 0 #080908,
+    0 7px 15px rgb(0 0 0 / 65%);
+}
+
 @media (max-width: 560px) {
   .lcd {
     width: 92vw;
-    aspect-ratio: 2 / 1;
   }
 
   .digits {
     font-size: 28vw;
+  }
+
+  .red-button {
+    width: min(55vw, 230px);
   }
 }
 
