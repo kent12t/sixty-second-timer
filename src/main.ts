@@ -25,7 +25,28 @@ let stoppedAt = 0
 let animationId = 0
 let resetId = 0
 let distractionId = 0
+let typingId = 0
+let runId = 0
 let audioContext: AudioContext | undefined
+const audioBuffers = new Map<string, Promise<AudioBuffer>>()
+const activeSounds = new Map<string, number>()
+const activeSources = new Set<AudioBufferSourceNode>()
+const playedOnce = new Set<string>()
+const playCounts = new Map<string, number>()
+const playLimits = new Map<string, number>()
+
+const distractionSounds = [
+  { name: 'microwave', chance: 1 / 22.5 },
+  { name: 'bell', chance: 6 / 30 },
+  { name: 'marker', chance: 4 / 30 },
+  { name: 'chair', chance: 2 / 30 },
+  { name: 'phone', chance: 0.06, limit: 1 },
+  { name: 'printer', chance: 0.06, limit: 1 },
+  { name: 'twenty to ninety', chance: 0.06, limit: 1 },
+  { name: 'one to ten', chance: 0.06, limit: 1 },
+  { name: 'fifteen', chance: 0.18, variableLimit: true },
+  { name: 'twenty', chance: 0.18, variableLimit: true },
+]
 
 function formatTime(milliseconds: number) {
   const totalHundredths = Math.floor(milliseconds / 10)
@@ -41,59 +62,108 @@ function render() {
   if (state === 'running') animationId = requestAnimationFrame(render)
 }
 
-function kitchenSound() {
+function loadSound(name: string) {
   audioContext ??= new AudioContext()
-  const ctx = audioContext
-  const now = ctx.currentTime
-  const master = ctx.createGain()
-  master.gain.setValueAtTime(0.0001, now)
-  master.gain.exponentialRampToValueAtTime(0.13, now + 0.02)
-  master.gain.exponentialRampToValueAtTime(0.0001, now + 0.8)
-  master.connect(ctx.destination)
-  const sound = Math.floor(Math.random() * 4)
+  let buffer = audioBuffers.get(name)
+  if (!buffer) {
+    buffer = fetch(`/${name}.aac`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Could not load ${name}.aac`)
+        return response.arrayBuffer()
+      })
+      .then((data) => audioContext!.decodeAudioData(data))
+    audioBuffers.set(name, buffer)
+  }
+  return buffer
+}
 
-  if (sound === 0) {
-    const osc = ctx.createOscillator()
-    osc.type = 'square'
-    osc.frequency.setValueAtTime(720, now)
-    osc.frequency.exponentialRampToValueAtTime(180, now + 0.35)
-    osc.connect(master)
-    osc.start(now)
-    osc.stop(now + 0.4)
-  } else if (sound === 1) {
-    for (let i = 0; i < 3; i += 1) {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'triangle'
-      osc.frequency.value = 110 + Math.random() * 40
-      gain.gain.setValueAtTime(0.12, now + i * 0.18)
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.18 + 0.06)
-      osc.connect(gain).connect(master)
-      osc.start(now + i * 0.18)
-      osc.stop(now + i * 0.18 + 0.07)
-    }
-  } else {
-    const buffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate)
-    const data = buffer.getChannelData(0)
-    for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1
+async function playSound(name: string, currentRun: number, onEnded?: () => void) {
+  if (activeSounds.has(name)) return
+  activeSounds.set(name, currentRun)
+
+  try {
+    const buffer = await loadSound(name)
+    if (state !== 'running' || currentRun !== runId) return
+
+    const ctx = audioContext!
     const source = ctx.createBufferSource()
-    const filter = ctx.createBiquadFilter()
-    filter.type = sound === 2 ? 'highpass' : 'bandpass'
-    filter.frequency.value = sound === 2 ? 3500 : 900
-    filter.Q.value = 4
+    const gain = ctx.createGain()
+    const now = ctx.currentTime
+    const fadeDuration = Math.min(0.15, buffer.duration / 3)
+
     source.buffer = buffer
-    source.connect(filter).connect(master)
-    source.start(now)
+    gain.gain.setValueAtTime(0, now)
+    gain.gain.linearRampToValueAtTime(0.55, now + fadeDuration)
+    gain.gain.setValueAtTime(0.55, now + Math.max(fadeDuration, buffer.duration - fadeDuration))
+    gain.gain.linearRampToValueAtTime(0, now + buffer.duration)
+    source.connect(gain).connect(ctx.destination)
+    activeSources.add(source)
+    source.addEventListener('ended', () => {
+      activeSources.delete(source)
+      if (activeSounds.get(name) === currentRun) activeSounds.delete(name)
+      if (state === 'running' && currentRun === runId) onEnded?.()
+    })
+    source.start()
+  } catch (error) {
+    if (activeSounds.get(name) === currentRun) activeSounds.delete(name)
+    console.error(error)
+  } finally {
+    if (
+      (state !== 'running' || currentRun !== runId)
+      && activeSounds.get(name) === currentRun
+    ) activeSounds.delete(name)
   }
 }
 
-function scheduleDistraction() {
-  window.clearTimeout(distractionId)
-  distractionId = window.setTimeout(() => {
-    if (state !== 'running') return
-    kitchenSound()
-    scheduleDistraction()
-  }, 2500 + Math.random() * 4000)
+function rollDistractions(currentRun: number) {
+  for (const sound of distractionSounds) {
+    if (activeSounds.has(sound.name)) continue
+    const limit = playLimits.get(sound.name)
+    if (limit !== undefined && (playCounts.get(sound.name) ?? 0) >= limit) continue
+    if (Math.random() >= sound.chance) continue
+    playCounts.set(sound.name, (playCounts.get(sound.name) ?? 0) + 1)
+    void playSound(sound.name, currentRun)
+  }
+
+  if (!playedOnce.has('happy-birthday') && Math.random() < 0.04) {
+    playedOnce.add('happy-birthday')
+    void playSound('surprise', currentRun, () => {
+      void playSound('happy-birthday', currentRun)
+    })
+  }
+}
+
+function startDistractions() {
+  const currentRun = runId
+  playedOnce.clear()
+  playCounts.clear()
+  playLimits.clear()
+  for (const sound of distractionSounds) {
+    if (sound.limit !== undefined) playLimits.set(sound.name, sound.limit)
+    if (sound.variableLimit) playLimits.set(sound.name, 1 + Math.floor(Math.random() * 3))
+  }
+  rollDistractions(currentRun)
+  distractionId = window.setInterval(() => {
+    if (state === 'running' && currentRun === runId) rollDistractions(currentRun)
+  }, 1000)
+  typingId = window.setTimeout(() => {
+    if (state === 'running' && currentRun === runId) void playSound('typing', currentRun)
+  }, Math.random() * 5000)
+}
+
+function stopDistractions() {
+  window.clearInterval(distractionId)
+  window.clearTimeout(typingId)
+  runId += 1
+  activeSounds.clear()
+  for (const source of activeSources) {
+    try {
+      source.stop()
+    } catch {
+      // A source that has just ended is already stopped.
+    }
+  }
+  activeSources.clear()
 }
 
 function resultMessage(milliseconds: number) {
@@ -107,7 +177,7 @@ function resultMessage(milliseconds: number) {
 
 function reset() {
   window.clearTimeout(resetId)
-  window.clearTimeout(distractionId)
+  stopDistractions()
   state = 'ready'
   stoppedAt = 0
   lcd.classList.remove('lcd--fading')
@@ -120,6 +190,7 @@ function reset() {
 function input() {
   if (state === 'ready') {
     state = 'running'
+    runId += 1
     startedAt = performance.now()
     lcd.classList.add('lcd--fading')
     message.textContent = ''
@@ -128,12 +199,12 @@ function input() {
     audioContext ??= new AudioContext()
     void audioContext.resume()
     render()
-    scheduleDistraction()
+    startDistractions()
   } else if (state === 'running') {
     state = 'stopped'
     stoppedAt = performance.now() - startedAt
     cancelAnimationFrame(animationId)
-    window.clearTimeout(distractionId)
+    stopDistractions()
     lcd.classList.remove('lcd--fading')
     render()
     message.textContent = resultMessage(stoppedAt)
